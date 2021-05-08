@@ -18,7 +18,6 @@ void mulMatrix(int rowA, int colA, ll matA[rowA][colA],
             }
         }
     }
-    
 }
 
 void printMatrix(int row, int col, ll matrix[row][col]) {

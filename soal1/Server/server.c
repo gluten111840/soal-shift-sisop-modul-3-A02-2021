@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <netinet/in.h> 
 #include <unistd.h> 
 #include <string.h>
@@ -9,6 +10,7 @@
 #define MAX_CONNECTIONS 10
 #define SIZE_BUF 100
 #define FILE_SEND_BUF 1024
+#define SERVERPATH "/home/ananda/Documents/soal-shift-sisop-modul-3-A02-2021/soal1/Server/FILES/"
 
 // Parameterless Functions
 
@@ -17,9 +19,15 @@ void checkFile();
 
 // Functions With Parameter(s)
 
-int checkIdentity(int mode, char id[], char password[]);
+void addCommand(int client, char idpass[128]);
+void downloadCommand(int client);
+void deleteCommand(int client, char idpass[128]);
+void seeCommand(int client);
 void appendAkun(const char *id, const char *password);
-void addCommand(int all_connections[], int serving);
+int checkIdentity(int mode, char id[], char password[]);
+int findFile(char filename[]);
+int findLine(int *found, char filename[]);
+
 char *strrev(char *str) {
     char *p1, *p2;
 
@@ -51,23 +59,25 @@ void getFileName(char path[], char filename[]) {
     strrev(filename);
 }
 
-void addFile(int client, char filename[]) {
+void recvFile(int client, char filename[]) {
     int ret_rec;
-    char serverPath[100] = "/home/ananda/Documents/SoalShiftModul3/soal1/FILES/";
+    char fullpath[256];
     char data[FILE_SEND_BUF];
 
-    sprintf(serverPath, "%s%s", serverPath, filename);
-    FILE *file = fopen(serverPath, "w");
+    sprintf(fullpath, "%s%s", SERVERPATH, filename);
+    FILE *file = fopen(fullpath, "w+");
     fclose(file);
     while(1) {
         if(recv(client, data, sizeof(data), 0) != -1) {
             if(!strcmp(data, "done")) return;
             
-            file = fopen(serverPath, "a");
+            file = fopen(fullpath, "a");
             fprintf(file, "%s", data);
-            bzero(data, FILE_SEND_BUF);
             fclose(file);
         }
+        printf("\e[33%s\n\e[0m", data);
+        fflush(stdout);
+        bzero(data, FILE_SEND_BUF);
     }
 }
 
@@ -79,6 +89,7 @@ int main () {
     int server_fd, new_fd, serving = 1;
     int ret_val, ret_val1, ret_val2, ret_val3, status_val;
     char message[SIZE_BUF], id[SIZE_BUF], password[SIZE_BUF], cmd[SIZE_BUF];
+    char idpass[256];
     socklen_t addrlen;
     int all_connections[MAX_CONNECTIONS];
 
@@ -129,7 +140,7 @@ int main () {
                             if(i != serving) {
                                 ret_val1 = send(all_connections[i], "wait",  SIZE_BUF, 0);
                             } else {
-                                ret_val1 = send(all_connections[i], "serve",  100, 0);
+                                ret_val1 = send(all_connections[i], "serve",  SIZE_BUF, 0);
                             }
                             break;
                         }
@@ -148,7 +159,7 @@ int main () {
                     (FD_ISSET(all_connections[i], &read_fd_set))) {
                     // Receieve/read command from client.
                     ret_val1 = recv(all_connections[i], cmd, sizeof(cmd), 0);
-                    printf("Returned fd is %d [index, i: %d]\n", all_connections[i], i);
+                    printf("\e[37mReturned fd is %d [index, i: %d]\e[0m\n", all_connections[i], i);
                     printf("Command : %s\n", cmd);
 
                     // Check if client terminante
@@ -187,7 +198,6 @@ int main () {
                         //Prioritize register and login.
                         if(!strcmp(cmd, "register")) {
                             if(userLoggedIn) {
-                                printf("\e[32mYou already logged in!\n");
                                 continue;
                             }
 
@@ -202,10 +212,11 @@ int main () {
                                 appendAkun(id, password);
                                 status_val = send(all_connections[serving],
                                         "regloginsuccess", SIZE_BUF, 0);
+                                sprintf(idpass, "%s:%s", id, password);
                             }
                         } else if(!strcmp(cmd, "login")) {
                             if(userLoggedIn) {
-                                printf("\e[32mYou already logged in!\n");
+                                // printf("\e[32mYou already logged in!\n");
                                 continue;
                             }
 
@@ -219,13 +230,23 @@ int main () {
                                 userLoggedIn = 1;
                                 status_val = send(all_connections[serving],
                                         "regloginsuccess", SIZE_BUF, 0);
+                                sprintf(idpass, "%s:%s", id, password);
                             }
                         } else {
                             if(userLoggedIn) {
-                                printf("Kamu berhak mengakses command\n");
                                 if(!strcmp(cmd, "add")){
-                                    addCommand(all_connections, serving);
+                                    addCommand(all_connections[serving], idpass);
                                 }
+                                if(!strcmp(cmd, "download")){
+                                    downloadCommand(all_connections[serving]);
+                                }
+                                if(!strcmp(cmd, "delete")) {
+                                    deleteCommand(all_connections[serving], idpass);
+                                }
+                                if(!strcmp(cmd, "see")) {
+                                    seeCommand(all_connections[serving]);
+                                }
+
                             } else {
                                 status_val = send(all_connections[serving],
                                         "notlogin", SIZE_BUF, 0);
@@ -257,27 +278,152 @@ int main () {
         }
     }
 
+    // ;
     return 0;
 }
 
 /*
 Handler for the add command.
 */
-void addCommand(int all_connections[], int serving) {
-    char publisher[SIZE_BUF], tahun[SIZE_BUF], filepath[SIZE_BUF], filename[SIZE_BUF];
-    int ret_pub, ret_year, ret_fp;
-    ret_pub = recv(all_connections[serving], publisher, sizeof(publisher), 0);
-    ret_year = recv(all_connections[serving], tahun, sizeof(tahun), 0);
-    ret_fp = recv(all_connections[serving], filepath, sizeof(filepath), 0);
+void addCommand(int client, char idpass[128]) {
+    char publisher[SIZE_BUF], tahun[SIZE_BUF],
+         filepath[SIZE_BUF], filename[SIZE_BUF],
+         message[SIZE_BUF];
+    int ret_pub, ret_year, ret_fp, ret_stat;
+    ret_pub = recv(client, publisher, sizeof(publisher), 0);
+    ret_year = recv(client, tahun, sizeof(tahun), 0);
+    ret_fp = recv(client, filepath, sizeof(filepath), 0);
+    int ret_rec;
+    char fullpath[256];
+    char data[FILE_SEND_BUF];
 
     getFileName(filepath, filename);
-    printf("%s\n", filename);
+    sprintf(fullpath, "%s%s", SERVERPATH, filename);
 
     FILE *tsv = fopen("files.tsv", "a");
-    fprintf(tsv, "%s\t%s\t%s\n", filepath, publisher, tahun);
+    fprintf(tsv, "%s\t%s\t%s\n", fullpath, publisher, tahun);
     fclose(tsv);
 
-    addFile(all_connections[serving], filename);
+    // recvFile(client, filename);
+    FILE *file = fopen(fullpath, "w+");
+    while(1) {
+        ret_rec = recv(client, data, FILE_SEND_BUF, 0);
+        printf("Data Begin -%s- Data End\n", data);
+        fflush(stdout);
+        if(ret_rec != -1) {
+            if(!strcmp(data, "done")) {
+                break;
+            }
+        }
+        fprintf(file, "%s", data);
+        bzero(data, FILE_SEND_BUF);
+    }
+    fclose(file);
+
+    FILE *log = fopen("running.log", "a");
+    fprintf(log, "Tambah : %s (%s)\n", filename, idpass);
+    fclose(log);
+}
+
+void downloadCommand(int client) {
+    char fullpath[256], filename[128];
+
+    int ret_fp;
+    ret_fp = recv(client, filename, sizeof(filename), 0);
+
+    sprintf(fullpath, "%s%s", SERVERPATH, filename);
+    // printf("%s\n", fullpath);
+
+    if(findFile(filename)) {
+        FILE *book = fopen(fullpath, "r");
+        char data[FILE_SEND_BUF];
+
+        while(fgets(data, FILE_SEND_BUF, book) != NULL) {
+            // printf("\e[35m[Sending]\e[33m %s\e[0m", data);
+            if(send(client, data, sizeof(data), 0) != -1) {
+                bzero(data, FILE_SEND_BUF);
+            }
+        }
+        fclose(book);
+        printf("\e[32mFile sent!\e[0m\n");
+        send(client, "done", FILE_SEND_BUF, 0);
+    } else {
+        send(client, "err404", FILE_SEND_BUF, 0);
+    }
+}
+
+void deleteCommand(int client, char idpass[128]) {
+    int ret_client, found = 0;
+    char filename[128], newPath[256], oldpath[256];
+
+    ret_client = recv(client, filename, sizeof(filename), 0);
+
+    findLine(&found, filename);
+    if(found) {
+        ret_client = send(client, "done", SIZE_BUF, 0);
+        sprintf(newPath, "%sold-%s", SERVERPATH, filename);
+        sprintf(oldpath, "%s%s", SERVERPATH, filename);
+        rename(oldpath, newPath);
+    } else {
+        ret_client = send(client, "notfound", SIZE_BUF, 0);
+    }
+
+    FILE *log = fopen("running.log", "a");
+    fprintf(log, "Hapus : %s (%s)\n", filename, idpass);
+    fclose(log);
+}
+
+void seeCommand(int client) {
+    FILE *book = fopen("files.tsv", "r");
+    char data[FILE_SEND_BUF], file[64], filename[64], pub[64],
+         tahun[64], eks[64], filepath[256];
+    char filenameSend[FILE_SEND_BUF], pubSend[FILE_SEND_BUF],
+         tahunSend[FILE_SEND_BUF], eksSend[FILE_SEND_BUF], filepathSend[FILE_SEND_BUF];
+    int ret_client;
+    // ret_client = recv(client, data, FILE_SEND_BUF, 0);
+    // ret_client = send(client, "data", FILE_SEND_BUF, 0);
+    printf("%s\n\n", data);
+
+    int i = 0;
+    char *p;
+    while(fgets(data, FILE_SEND_BUF, book) != NULL) {
+        if(i != 0) {
+            // printf("\e[35m[Sending]\e[33m %s\e[0m", data);
+            strcpy(filepath, strtok_r(data, "\t", &p));
+            strcpy(pub, strtok_r(NULL, "\t", &p));
+            strcpy(tahun, strtok_r(NULL, "\t", &p));
+            tahun[strlen(tahun)-1] = '\0';
+
+            getFileName(filepath, file);
+
+            strcpy(filename, strtok_r(file, ".", &p));
+            strcpy(eks, strtok_r(NULL, ".", &p));
+
+            sprintf(filenameSend, "Nama: %s", filename);
+            sprintf(pubSend, "Publisher: %s", pub);
+            sprintf(tahunSend, "Tahun Publishing: %s", tahun);
+            sprintf(eksSend, "Ekstensi File: %s", eks);
+            sprintf(filepathSend, "Filepath: %s", filepath);
+
+            send(client, filenameSend, FILE_SEND_BUF, 0);
+            sleep(1);
+            send(client, pubSend, FILE_SEND_BUF, 0);
+            sleep(1);
+            send(client, tahunSend, FILE_SEND_BUF, 0);
+            sleep(1);
+            send(client, eksSend, FILE_SEND_BUF, 0);
+            sleep(1);
+            send(client, filepathSend, FILE_SEND_BUF, 0);
+            sleep(1);
+            
+            int j;
+            printf("%s\n%s\n%s\n%s\n%s\n", filename, pub, tahun, eks, filepath);
+        }
+        i++;
+        bzero(data, sizeof(data));
+    }
+
+    fclose(book);
 }
 
 /*
@@ -294,13 +440,51 @@ int checkIdentity(int mode, char id[], char password[]){
         sprintf(akun, "%s:", id);
 
     // Loop per line
-    while(fscanf(fp,"%s", temp) == 1){
+    while(fscanf(fp, "%s", temp) == 1){
         // Cek apakah id:password sudah ada.
         if(strstr(temp, akun)!=0) {
+                fclose(fp);
                 return 1;
         }
     }
     fclose(fp);
+    return 0;
+}
+
+int findFile(char filename[]) {
+    FILE *tsv = fopen("files.tsv", "r");
+    char temp[256];
+    
+    while(fscanf(tsv,"%s", temp) == 1){
+        // Cek apakah id:password sudah ada.
+        if(strstr(temp, filename)!=0) {
+            fclose(tsv);
+            return 1;
+        }
+    }
+    fclose(tsv);
+    return 0;
+}
+
+int findLine(int *found, char filename[]) {
+    FILE *tsv = fopen("files.tsv", "r+");
+    FILE *tmp = fopen("temp.tsv", "w+");
+    char temp[256], line[256], tsvPath[256], tempPath[256];
+    
+    while(fgets(line, 256, tsv) != 0){
+        // Cek apakah id:password sudah ada.
+        if(sscanf(line, "%255[^\n]", temp) != 1) break;
+        if(strstr(temp, filename) != 0) {
+            *found = 1;
+        } else {
+            fprintf(tmp, "%s\n", temp);
+        }
+    }
+    remove("files.tsv");
+    rename("temp.tsv", "files.tsv");
+
+    fclose(tmp);
+    fclose(tsv);
     return 0;
 }
 
@@ -359,6 +543,10 @@ void checkFile() {
     if(access("files.tsv", F_OK )) {
 		FILE *fp = fopen("files.tsv", "w+");
         fprintf(fp, "FilePath\tPublisher\tTahun Publikasi\n");
+		fclose(fp);
+	}
+    if(access("running.log", F_OK )) {
+		FILE *fp = fopen("running.log", "w+");
 		fclose(fp);
 	}
 

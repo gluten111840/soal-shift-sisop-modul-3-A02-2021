@@ -82,7 +82,7 @@ int main() {
 
     for(int i = 0; i < ROW; i++) {
         for(int j = 0; j < COL; j++) {
-            cellVar = (struct cellArgs *)malloc(sizeof(struct cellArgs));
+            cellVar = (struct cellArgs *) malloc(sizeof(struct cellArgs));
             cellVar->a = matA[i][j];
             cellVar->b = matB[i][j];
             cellVar->res = &result[i][j];
