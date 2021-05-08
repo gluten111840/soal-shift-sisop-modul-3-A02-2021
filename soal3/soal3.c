@@ -51,11 +51,11 @@ int main(int argc, char **argv)
         while(ep = readdir(dp))
         {
             if (!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."));
-            printf("%s\n", ep->d_name);
+            // printf("%s\n", ep->d_name);
             strcpy(source, pwd);
             strcat(source, "/");
             strcat(source, ep->d_name);
-            printf("%s\n", source);
+            // printf("%s\n", source);
             // Under Unix, value 8 is a regular file and 4 is a directory
             if(ep->d_type == 8)
             {
@@ -115,17 +115,24 @@ void* pindahin(void *arg)
         }
         if(flag == 0)
         {
-            strcpy(temp, pwd);
+            strcpy(temp, destination);
             strcat(temp, "/");
             strcat(temp, temp_format);
             mkdir(temp, 0777);
         }
     }
-    else
+    else if(i<1)
     {
-        strcpy(temp, pwd);
+        strcpy(temp, destination);
         strcat(temp, "/");
         strcat(temp, "Unknown");
+        mkdir(temp, 0777);
+    }
+    else
+    {
+        strcpy(temp, destination);
+        strcat(temp, "/");
+        strcat(temp, "Hidden");
         mkdir(temp, 0777);
     }
     strcpy(source, arg);
