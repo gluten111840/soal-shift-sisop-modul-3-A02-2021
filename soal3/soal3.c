@@ -1,23 +1,22 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+#include<unistd.h>
 #include<pthread.h>
 #include<ctype.h>
 #include<dirent.h>
 #include<sys/stat.h>
 
-#define SIZE 255
+#define SIZE 1000
 
 pthread_t tid[3];
 
 char pwd[SIZE];
-char slashh[1] = "/";
-char dot[1] = ".";
+char destination[SIZE] = "/home/bayuekap/izone/";
 
 void* pindahin(void *);
-void* buatfolder(void *);
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
     char format_file[SIZE];
     int i = 0;
@@ -51,29 +50,20 @@ int main(int argc, char *argv[])
         // {
         while(ep = readdir(dp))
         {
+            if (!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."));
             printf("%s\n", ep->d_name);
             strcpy(source, pwd);
-            strcat(source, slashh);
+            strcat(source, "/");
             strcat(source, ep->d_name);
             printf("%s\n", source);
             // Under Unix, value 8 is a regular file and 4 is a directory
             if(ep->d_type == 8)
             {
-                pthread_create(&(tid[index]), NULL, pindahin, (void*)source);
+                pthread_create(&(tid[index]), NULL, pindahin, source);
                 pthread_join(tid[index], NULL);
                 index++;
             }
         }
-        closedir(dp);
-    }
-    for(int i=2;i<argc;i++)
-    {
-        char filename[SIZE];
-        strcpy(filename, argv[i]);
-        char *format;
-        format = strchr(filename, '.');
-        pthread_create(&tid[i], NULL, buatfolder, (void*)format+1);
-        pthread_join(tid[i], NULL);
     }
 }
 
@@ -105,16 +95,16 @@ void* pindahin(void *arg)
         j++;
     }
     strcpy(temp_format, ekstensi[j-1]);
-    for(int i=0;i<sizeof(temp_format);i++)
+    for(int a=0;a<sizeof(temp_format);a++)
     {
-        temp_format[i] = tolower(temp_format[i]);
+        temp_format[a] = tolower(temp_format[a]);
     }
 
     char temp[SIZE];
     if(i>1)
     {
         if(dp == NULL || !dp)
-            printf("Berhasil Dikategorikan\n");
+            printf("Sad, gagal :(\n");
         while(ep = readdir(dp))
         {
             if(strcmp(ep->d_name, temp_format) == 0 && ep->d_type == 4)
@@ -129,9 +119,6 @@ void* pindahin(void *arg)
             strcat(temp, "/");
             strcat(temp, temp_format);
             mkdir(temp, 0777);
-            strcpy(dest, temp);
-            strcpy(source, arg);
-            rename(source, dest);
         }
     }
     else
@@ -140,27 +127,17 @@ void* pindahin(void *arg)
         strcat(temp, "/");
         strcat(temp, "Unknown");
         mkdir(temp, 0777);
-        strcpy(dest, temp);
-        strcpy(source, arg);
-        rename(source, dest);
     }
+    strcpy(source, arg);
+    strcpy(dest, destination);
+    if(i == 1)
+        strcat(dest, "Unknown");
+    else
+        strcat(dest, temp_format);
     if(nama_file[0] == ".")
-    {
-        strcpy(temp, pwd);
-        strcat(temp, "/");
-        strcat(temp, "Hidden");
-        mkdir(temp, 0777);
-        strcpy(dest, temp);
-        strcpy(source, arg);
-        rename(source, dest);
-    }
-    
+        strcat(dest, "Hidden");
+    rename(source, dest);
+    printf("Berhasil dikategorikan\n");
+    i = 0, j = 0;
     return NULL;
-}
-
-void* buatfolder(void *format)
-{
-    char dest[SIZE] = "home/bayuekap/izone/";
-    strcat(dest, format);
-    int result = mkdir(dest, 0777);
 }
