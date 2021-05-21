@@ -18,6 +18,7 @@ char another[10000];
 char another2[10000];
 
 void *pindahin(void *);
+void *pindahindf(void *);
 void star(int argc, char *argv[]);
 void findanother();
 
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
     {
         for(int i=2;i<argc;i++)
         {
-            bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *)argv[i]);
+            bikin_thread = pthread_create(&tid[i], NULL, pindahindf, (void *)argv[i]);
             if(bikin_thread != 0)
                 printf("File %d : Sad, gagal :(\n", i-1);
             else
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
     else if(strcmp(argv[1], "-d") == 0)
     {
         // minde(argc, argv);
-        bikin_thread = pthread_create(&tid[2], NULL, pindahin, (void *)argv[2]);
+        bikin_thread = pthread_create(&tid[2], NULL, pindahindf, (void *)argv[2]);
         if(bikin_thread != 0)
             printf("Yah, gagal disimpan :(\n");
         else
@@ -82,9 +83,11 @@ void *pindahin(void *arg)
         nama_file = path;
 
     char tujuan[10000];
+    char akhir[10000];
     strcpy(tujuan, pwd);
     strcat(tujuan, "/");
     strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
     mkdir(tujuan, S_IRWXU);
     if(strlen(another2) > 1)
     {
@@ -106,14 +109,56 @@ void *pindahin(void *arg)
         strcat(tujuan, nama_file);
         rename(file_nama, tujuan);
     }
-    else
-    {
-        strcat(tujuan, "/");
-        strcat(tujuan, nama_file);
-        rename(path, tujuan);
-    }
+    // else
+    // {
+        strcat(akhir, "/");
+        strcat(akhir, nama_file);
+        rename(path, akhir);
+    // }
     return NULL;
 }
+void *pindahindf(void *arg)
+{
+    char *path = (char *) arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(path, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+    if((ekstensi-path-strlen(pwd)+1)==2 || 
+        (ekstensi-path+1)==1)
+        strcpy(ext, "Hidden");
+    else if(ekstensi)
+    {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+
+    char *nama_file = NULL;
+    nama_file = strchr(path, '/');
+    if(nama_file)
+        nama_file++;
+    else
+        nama_file = path;
+
+    char tujuan[10000];
+    char akhir[10000];
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+
+    strcat(akhir, "/");
+    strcat(akhir, nama_file);
+    rename(path, akhir);
+    
+    return NULL;
+}
+
 
 void star(int argc, char *argv[])
 {
