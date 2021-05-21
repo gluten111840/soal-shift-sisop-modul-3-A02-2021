@@ -6,145 +6,189 @@
 #include<ctype.h>
 #include<dirent.h>
 #include<sys/stat.h>
+#include<sys/types.h>
+#include<stdlib.h>
 
-#define SIZE 1000
+pthread_t tid[99999999];
+int bikin_thread;
+pid_t child;
+char pwd[10000];
+char folder[10000];
+char another[10000];
+char another2[10000];
 
-pthread_t tid[3];
+void *pindahin(void *);
+void star(int argc, char *argv[]);
+void findanother();
 
-char pwd[SIZE];
-char destination[SIZE] = "/home/bayuekap/izone/";
-
-void* pindahin(void *);
-
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
-    char format_file[SIZE];
-    int i = 0;
-    int j = 0;
-    int index = 0;
-
+    getcwd(pwd, sizeof(pwd));
+    memset(folder, '\0', sizeof(folder));
+    memset(another, '\0', sizeof(another));
+    memset(another2, '\0', sizeof(another2));
     if(strcmp(argv[1], "-f") == 0)
     {
-        for(i=2;i<argc;i++)
+        for(int i=2;i<argc;i++)
         {
-            pthread_create(&(tid[j]), NULL, pindahin, argv[i]);
-            pthread_join(tid[j], NULL);
-            j++;
+            bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *)argv[i]);
+            if(bikin_thread != 0)
+                printf("File %d : Sad, gagal :(\n", i-1);
+            else
+                printf("File %d : Berhasil Dikategorikan\n", i-1);
         }
+        for(int i=2;i<argc;i++)
+            pthread_join(tid[i], NULL);
     }
     else if(strcmp(argv[1], "-d") == 0)
     {
-        pthread_create(&(tid[index]), NULL, pindahin, argv[2]);
-        pthread_join(tid[index], NULL);
-        index++;
-                
+        // minde(argc, argv);
+        bikin_thread = pthread_create(&tid[2], NULL, pindahin, (void *)argv[2]);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        pthread_join(tid[2], NULL);
     }
-    else if(strcmp(argv[1], "*") == 0)
-    {
-        int index = 0;
-        DIR *dp;
-        dp = opendir(pwd);
-        struct dirent *ep;
-        char source[SIZE];
-        // if(dp != NULL)
-        // {
-        while(ep = readdir(dp))
-        {
-            if (!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."));
-            // printf("%s\n", ep->d_name);
-            strcpy(source, pwd);
-            strcat(source, "/");
-            strcat(source, ep->d_name);
-            // printf("%s\n", source);
-            // Under Unix, value 8 is a regular file and 4 is a directory
-            if(ep->d_type == 8)
-            {
-                pthread_create(&(tid[index]), NULL, pindahin, source);
-                pthread_join(tid[index], NULL);
-                index++;
-            }
-        }
-    }
+    else if((argv[1][0] == '*') && (strlen(argv[1]) == 1))
+        star(argc, argv);
 }
 
-void* pindahin(void *arg)
+void *pindahin(void *arg)
+{
+    char *path = (char *) arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(path, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+    if((ekstensi-path-strlen(pwd)+1)==2 || 
+        (ekstensi-path+1)==1)
+        strcpy(ext, "Hidden");
+    else if(ekstensi)
+    {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+
+    char *nama_file = NULL;
+    nama_file = strchr(path, '/');
+    if(nama_file)
+        nama_file++;
+    else
+        nama_file = path;
+
+    char tujuan[10000];
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    mkdir(tujuan, S_IRWXU);
+    if(strlen(another2) > 1)
+    {
+        char file_nama[10000];
+        strcpy(file_nama, another2);
+        strcat(file_nama, "/");
+        strcat(file_nama, nama_file);
+        strcat(tujuan, "/");
+        strcat(tujuan, nama_file);
+        rename(file_nama, tujuan);
+    }
+    else if(strlen(folder) > 1)
+    {
+        char file_nama[10000];
+        strcpy(file_nama, folder);
+        strcat(file_nama, "/");
+        strcat(file_nama, nama_file);
+        strcat(tujuan, "/");
+        strcat(tujuan, nama_file);
+        rename(file_nama, tujuan);
+    }
+    else
+    {
+        strcat(tujuan, "/");
+        strcat(tujuan, nama_file);
+        rename(path, tujuan);
+    }
+    return NULL;
+}
+
+void star(int argc, char *argv[])
 {
     DIR *dp;
     struct dirent *ep;
     dp = opendir(pwd);
+    strcpy(folder, pwd);
     int i = 0;
-    int j = 0;
-    char *nama, *ext;
-    char *ekstensi[10], *nama_file[100];
-    char temp_format[SIZE], temp_nama[SIZE];
-    int flag = 0;
-    char source[SIZE], dest[SIZE];
-    nama = strtok(arg, "/");
-    while(nama != NULL)
+    while((dp != NULL) && (ep = readdir(dp)))
     {
-        nama_file[i] = nama;
-        nama = strtok(NULL, "/");
+        if(ep->d_type == 4 && 
+            strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcpy(another, folder);
+            strcat(another, "/");
+            strcat(another, ep->d_name);
+            strcat(another, "/");
+            findanother();
+        }
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, ep->d_name);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
         i++;
     }
-    strcpy(temp_nama, nama_file[i-1]);
-    ext = strtok(nama_file[i-1], ".");
-    while(ext != NULL)
-    {
-        ekstensi[j] = ext;
-        ext = strtok(NULL, ".");
-        j++;
-    }
-    strcpy(temp_format, ekstensi[j-1]);
-    for(int a=0;a<sizeof(temp_format);a++)
-    {
-        temp_format[a] = tolower(temp_format[a]);
-    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
 
-    char temp[SIZE];
-    if(i>1)
+void findanother()
+{
+    DIR *dp;
+    struct dirent *ep;
+    int i  = 0;
+    memset(another2, '\0', sizeof(another2));
+    strcpy(another2, another);
+    dp = opendir(another2);
+    while((dp != NULL) && (ep = readdir(dp)))
     {
-        if(dp == NULL || !dp)
-            printf("Sad, gagal :(\n");
-        while(ep = readdir(dp))
+        if(ep->d_type == 4 && strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
         {
-            if(strcmp(ep->d_name, temp_format) == 0 && ep->d_type == 4)
-            {
-                flag = 1;
-                break;
-            }
+            strcat(another2, ep->d_name);
+            strcat(another2, "/");
+            findanother();
         }
-        if(flag == 0)
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
         {
-            strcpy(temp, destination);
-            strcat(temp, "/");
-            strcat(temp, temp_format);
-            mkdir(temp, 0777);
+            continue;
         }
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, ep->d_name);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
     }
-    else if(i<1)
-    {
-        strcpy(temp, destination);
-        strcat(temp, "/");
-        strcat(temp, "Unknown");
-        mkdir(temp, 0777);
-    }
-    else
-    {
-        strcpy(temp, destination);
-        strcat(temp, "/");
-        strcat(temp, "Hidden");
-        mkdir(temp, 0777);
-    }
-    strcpy(source, arg);
-    strcpy(dest, destination);
-    if(i == 1)
-        strcat(dest, "Unknown");
-    else
-        strcat(dest, temp_format);
-    if(nama_file[0] == ".")
-        strcat(dest, "Hidden");
-    rename(source, dest);
-    printf("Berhasil dikategorikan\n");
-    i = 0, j = 0;
-    return NULL;
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
 }
