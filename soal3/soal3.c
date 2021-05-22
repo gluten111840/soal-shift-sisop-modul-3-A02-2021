@@ -22,6 +22,37 @@ void *pindahindf(void *);
 void star(int argc, char *argv[]);
 void findanother();
 
+char *strrev(char *str) {
+    char *p1, *p2;
+
+    if (! str || ! *str)
+        return str;
+    for (p1 = str, p2 = str + strlen(str) - 1; p2 > p1; ++p1, --p2) {
+        *p1 ^= *p2;
+        *p2 ^= *p1;
+        *p1 ^= *p2;
+    }
+    return str;
+}
+
+void getFileName(char path[], char filename[]) {
+    int i = strlen(path) - 1;
+    int j = 0;
+    // int len = strlen(path) - 1;
+    // char temp[strlen(path)];
+    while(i) {
+        path[i+1] = '\0';
+        if(path[i] == '/')
+            break;
+        filename[j] = path[i];
+        i--;
+        j++;
+    }
+    filename[j] = '\0';
+
+    strrev(filename);
+}
+
 int main(int argc, char *argv[])
 {
     getcwd(pwd, sizeof(pwd));
@@ -137,12 +168,9 @@ void *pindahindf(void *arg)
     else
         strcpy(ext, "Unknown");
 
-    char *nama_file = NULL;
-    nama_file = strchr(path, '/');
-    if(nama_file)
-        nama_file++;
-    else
-        nama_file = path;
+    char nama_file[10000];
+    
+    getFileName(path, nama_file);
 
     char tujuan[10000];
     char akhir[10000];
@@ -152,9 +180,14 @@ void *pindahindf(void *arg)
     strcpy(akhir, tujuan);
     mkdir(tujuan, S_IRWXU);
 
+    bzero(tujuan, sizeof(tujuan));
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, nama_file);
     strcat(akhir, "/");
     strcat(akhir, nama_file);
-    rename(path, akhir);
+    printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", tujuan, akhir);
+    rename(tujuan, akhir);
     
     return NULL;
 }
