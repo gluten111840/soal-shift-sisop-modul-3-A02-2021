@@ -23,6 +23,7 @@ void addCommand(int client, char idpass[128]);
 void downloadCommand(int client);
 void deleteCommand(int client, char idpass[128]);
 void seeCommand(int client);
+void findCommand(int client);
 void appendAkun(const char *id, const char *password);
 int checkIdentity(int mode, char id[], char password[]);
 int findFile(char filename[]);
@@ -99,7 +100,7 @@ int main () {
     /* Get the socket server fd */
     server_fd = create_tcp_server_socket(); 
     if (server_fd == -1) {
-        fprintf(stderr, "Failed to create a server\n");
+        fprintf(stderr, "[!] Failed to create a server\n");
         return -1; 
     }   
 
@@ -110,7 +111,7 @@ int main () {
     }
     all_connections[0] = server_fd;
 
-	printf("\nServer is running....\n\n");
+	printf("\e[32m[!] Server is running....\n\n");
     int userLoggedIn = 0;
     while (1) {
         FD_ZERO(&read_fd_set);
@@ -131,10 +132,11 @@ int main () {
                 /* accept the new connection */
                 new_fd = accept(server_fd, (struct sockaddr*)&new_addr, &addrlen);
                 if (new_fd >= 0) {
-                    printf("New connection incoming:\n\n");
+                    printf("\e[32m[!] New connection incoming:\e[0m\n");
                     for (i=0;i < MAX_CONNECTIONS;i++) {
                         if (all_connections[i] < 0) {
                             all_connections[i] = new_fd;
+                            printf("\e[32m    On Index: %d\e[0m\n\n", i);
 
                             // If the server is still serving a client, make other connections wait.
                             if(i != serving) {
@@ -146,7 +148,7 @@ int main () {
                         }
                     }
                 } else {
-                    fprintf(stderr, "Accept failed [%s]\n", strerror(errno));
+                    fprintf(stderr, "\e[31m[!] Accept failed [%s]\e[0m\n", strerror(errno));
                 }
                 ret_val--;
                 if (!ret_val) continue;
@@ -159,12 +161,12 @@ int main () {
                     (FD_ISSET(all_connections[i], &read_fd_set))) {
                     // Receieve/read command from client.
                     ret_val1 = recv(all_connections[i], cmd, sizeof(cmd), 0);
-                    printf("\e[37mReturned fd is %d [index, i: %d]\e[0m\n", all_connections[i], i);
-                    printf("Command : %s\n", cmd);
+                    printf("\e[1;37mServing client FD %d [index %d]\e[0m\n", all_connections[i], i);
+                    printf("Command: \e[1;37m%s\e[0m\n", cmd);
 
                     // Check if client terminante
                     if (ret_val1 == 0) {
-                        printf("Closing connection for fd : %d\n", all_connections[i]);
+                        printf("\e[31mClosing connection for FD: %d\e[0m\n", all_connections[i]);
                         printf("ID:Password = %s:%s\n\n", id, password);
                         id[0] = 0;
                         password[0] = 0;
@@ -246,6 +248,9 @@ int main () {
                                 if(!strcmp(cmd, "see")) {
                                     seeCommand(all_connections[serving]);
                                 }
+                                if(!strcmp(cmd, "find")) {
+                                    findCommand(all_connections[serving]);
+                                }
 
                             } else {
                                 status_val = send(all_connections[serving],
@@ -255,8 +260,8 @@ int main () {
                             }
                         }
                         
-                        printf("ID of the user now : %s\n", id);
-                        printf("Password of the user now : %s\n\n", password);
+                        printf("ID of the user now: %s\n", id);
+                        printf("Password of the user now: %s\n\n", password);
                     }
                     if (ret_val1 == -1 || ret_val2 == -1 || ret_val3 == -1) {
                         printf("recv() failed for fd: %d [%s]\n",
@@ -377,18 +382,12 @@ void seeCommand(int client) {
     FILE *book = fopen("files.tsv", "r");
     char data[FILE_SEND_BUF], file[64], filename[64], pub[64],
          tahun[64], eks[64], filepath[256];
-    char filenameSend[FILE_SEND_BUF], pubSend[FILE_SEND_BUF],
-         tahunSend[FILE_SEND_BUF], eksSend[FILE_SEND_BUF], filepathSend[FILE_SEND_BUF];
-    int ret_client;
-    // ret_client = recv(client, data, FILE_SEND_BUF, 0);
-    // ret_client = send(client, "data", FILE_SEND_BUF, 0);
-    printf("%s\n\n", data);
+    char temp[FILE_SEND_BUF];
 
     int i = 0;
     char *p;
     while(fgets(data, FILE_SEND_BUF, book) != NULL) {
         if(i != 0) {
-            // printf("\e[35m[Sending]\e[33m %s\e[0m", data);
             strcpy(filepath, strtok_r(data, "\t", &p));
             strcpy(pub, strtok_r(NULL, "\t", &p));
             strcpy(tahun, strtok_r(NULL, "\t", &p));
@@ -399,29 +398,79 @@ void seeCommand(int client) {
             strcpy(filename, strtok_r(file, ".", &p));
             strcpy(eks, strtok_r(NULL, ".", &p));
 
-            sprintf(filenameSend, "Nama: %s", filename);
-            sprintf(pubSend, "Publisher: %s", pub);
-            sprintf(tahunSend, "Tahun Publishing: %s", tahun);
-            sprintf(eksSend, "Ekstensi File: %s", eks);
-            sprintf(filepathSend, "Filepath: %s", filepath);
+            bzero(data, FILE_SEND_BUF);
 
-            send(client, filenameSend, FILE_SEND_BUF, 0);
-            sleep(1);
-            send(client, pubSend, FILE_SEND_BUF, 0);
-            sleep(1);
-            send(client, tahunSend, FILE_SEND_BUF, 0);
-            sleep(1);
-            send(client, eksSend, FILE_SEND_BUF, 0);
-            sleep(1);
-            send(client, filepathSend, FILE_SEND_BUF, 0);
-            sleep(1);
+            sprintf(temp, "Nama: %s\n", filename);
+            strcat(data, temp);
+            sprintf(temp, "Publisher: %s\n", pub);
+            strcat(data, temp);
+            sprintf(temp, "Tahun Publishing: %s\n", tahun);
+            strcat(data, temp);
+            sprintf(temp, "Ekstensi File: %s\n", eks);
+            strcat(data, temp);
+            sprintf(temp, "Filepath: %s%s.%s\n", filepath, file, eks);
+            strcat(data, temp);
+            
+            send(client, data, sizeof(data), 0);
             
             int j;
-            printf("%s\n%s\n%s\n%s\n%s\n", filename, pub, tahun, eks, filepath);
         }
         i++;
         bzero(data, sizeof(data));
     }
+    send(client, "done", sizeof("done"), 0);
+
+    fclose(book);
+}
+
+void findCommand(int client) {
+    FILE *book = fopen("files.tsv", "r");
+    char data[FILE_SEND_BUF], file[64], filename[64], pub[64],
+         tahun[64], eks[64], filepath[256];
+
+    char temp[FILE_SEND_BUF], fileToFind[FILE_SEND_BUF];
+
+    int client_val;
+
+    client_val = recv(client, fileToFind, FILE_SEND_BUF, 0);
+
+    int i = 0;
+    char *p;
+    while(fgets(data, FILE_SEND_BUF, book) != NULL) {
+        if(i != 0) {
+            strcpy(filepath, strtok_r(data, "\t", &p));
+            strcpy(pub, strtok_r(NULL, "\t", &p));
+            strcpy(tahun, strtok_r(NULL, "\t", &p));
+            tahun[strlen(tahun)-1] = '\0';
+
+            getFileName(filepath, file);
+
+            strcpy(filename, strtok_r(file, ".", &p));
+            strcpy(eks, strtok_r(NULL, ".", &p));
+
+            bzero(data, FILE_SEND_BUF);
+
+            if(strstr(filename, fileToFind) != NULL) {
+                sprintf(temp, "Nama: %s\n", filename);
+                strcat(data, temp);
+                sprintf(temp, "Publisher: %s\n", pub);
+                strcat(data, temp);
+                sprintf(temp, "Tahun Publishing: %s\n", tahun);
+                strcat(data, temp);
+                sprintf(temp, "Ekstensi File: %s\n", eks);
+                strcat(data, temp);
+                sprintf(temp, "Filepath: %s%s.%s\n", filepath, file, eks);
+                strcat(data, temp);
+                
+                send(client, data, sizeof(data), 0);
+            }
+            
+            int j;
+        }
+        i++;
+        bzero(data, sizeof(data));
+    }
+    send(client, "done", sizeof("done"), 0);
 
     fclose(book);
 }
@@ -507,7 +556,7 @@ int create_tcp_server_socket() {
         fprintf(stderr, "Socket failed [%s]\n", strerror(errno));
         return -1;
     }
-    printf("Created a socket with fd: %d\n", fd);
+    printf("\e[32mCreated a socket with fd: %d\e[0m\n", fd);
 
     /* Initialize the socket address structure */
     saddr.sin_family = AF_INET;         

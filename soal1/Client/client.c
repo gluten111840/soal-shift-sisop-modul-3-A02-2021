@@ -11,15 +11,16 @@
 #define FILE_SEND_BUF 1024
 #define CLIENTPATH "/home/ananda/Documents/soal-shift-sisop-modul-3-A02-2021/soal1/Client/"
 
-int handleRegLog(int fd, char cmd[]);
+int handleRegLog(int server, char cmd[]);
 void recieveInput(const char *title, char str[]);
 void printWarn(const char *msg);
-void downloadBook(int fd);
-void deleteBook(int fd);
-void sendFile(int fd);
-void seeBook(int fd);
+void downloadBook(int server);
+void deleteBook(int server);
+void sendFile(int server);
+void getBookList(int server);
+void findBook(int server);
 
-int main () {
+int main() {
     struct sockaddr_in saddr;
     int fd, ret_val;
     struct hostent *local_host; /* need netdb.h for this */
@@ -60,7 +61,7 @@ int main () {
         // sign up user
         int b=0;
         while(!commandTrue) {
-            recieveInput("Insert Register/Login", cmd);
+            recieveInput("\nInsert Register/Login", cmd);
             for(b = 0; b < strlen(cmd); b++){
                 cmd[b] = tolower(cmd[b]);
             }
@@ -81,7 +82,7 @@ int main () {
         }
         commandTrue = 0;
         while(!commandTrue){
-            recieveInput("Insert Command\n(add/delete/see/find)", cmd);
+            recieveInput("\nInsert Command\n(add/delete/see/find)", cmd);
             for(b = 0; b < strlen(cmd); b++){
                 cmd[b] = tolower(cmd[b]);
             }
@@ -100,7 +101,10 @@ int main () {
                 deleteBook(fd);
             }
             if(!strcmp(cmd, "see")){
-                seeBook(fd);
+                getBookList(fd);
+            }
+            if(!strcmp(cmd, "find")){
+                findBook(fd);
             }
         }
 
@@ -114,18 +118,18 @@ int main () {
     return 0;
 }
 
-int handleRegLog(int fd, char cmd[]){
+int handleRegLog(int server, char cmd[]){
     int ret_val, isFound = 0;
 	char id[SIZE_BUF], password[SIZE_BUF], message[SIZE_BUF];
 	
     recieveInput("Enter Username", id);
     recieveInput("Enter Password", password);
 
-    ret_val = send(fd, id, sizeof(id), 0);
-    ret_val = send(fd, password, sizeof(id), 0);
+    ret_val = send(server, id, sizeof(id), 0);
+    ret_val = send(server, password, sizeof(id), 0);
 
-    ret_val = recv(fd, message, SIZE_BUF, 0);
-    puts(message);
+    ret_val = recv(server, message, SIZE_BUF, 0);
+    // puts(message);
 
     //check if its terminate condition
     if(!strcmp(message, "regloginsuccess")){
@@ -142,7 +146,7 @@ int handleRegLog(int fd, char cmd[]){
 	
 }
 
-void sendFile(int fd){
+void sendFile(int server){
     int ret_val;
     char publisher[SIZE_BUF], tahun[SIZE_BUF], filepath[SIZE_BUF];
     
@@ -150,22 +154,22 @@ void sendFile(int fd){
     recieveInput("Tahun Publikasi", tahun);
     recieveInput("Filepath", filepath);
 
-    ret_val = send(fd, publisher, sizeof(publisher), 0);
-    ret_val = send(fd, tahun, sizeof(tahun), 0);
-    ret_val = send(fd, filepath, sizeof(filepath), 0);
+    ret_val = send(server, publisher, sizeof(publisher), 0);
+    ret_val = send(server, tahun, sizeof(tahun), 0);
+    ret_val = send(server, filepath, sizeof(filepath), 0);
     
     FILE *book = fopen(filepath, "r");
     char data[FILE_SEND_BUF];
 
     while(fgets(data, FILE_SEND_BUF, book) != NULL) {
         // printf("\e[35m[Sending]\e[33m %s\e[0m", data);
-        if(send(fd, data, sizeof(data), 0) != -1) {
+        if(send(server, data, sizeof(data), 0) != -1) {
             bzero(data, FILE_SEND_BUF);
         }
     }
     fclose(book);
     printf("\e[32mFile sent!\e[0m\n");
-    send(fd, "done", FILE_SEND_BUF, 0);
+    send(server, "done", FILE_SEND_BUF, 0);
 }
 
 void recvFile(int server, char filename[]) {
@@ -196,26 +200,26 @@ void recvFile(int server, char filename[]) {
     }
 }
 
-void downloadBook(int fd) {
+void downloadBook(int server) {
     int ret_val;
     char filename[SIZE_BUF];
 
     recieveInput("Masukkan nama file", filename);
 
-    ret_val = send(fd, filename, sizeof(filename), 0);
+    ret_val = send(server, filename, sizeof(filename), 0);
 
-    recvFile(fd, filename);
+    recvFile(server, filename);
 }
 
-void deleteBook(int fd) {
+void deleteBook(int server) {
     int ret_val;
     char filename[SIZE_BUF], resp[SIZE_BUF];
 
     recieveInput("Masukkan nama file", filename);
 
-    ret_val = send(fd, filename, sizeof(filename), 0);
+    ret_val = send(server, filename, sizeof(filename), 0);
 
-    ret_val = recv(fd, resp, SIZE_BUF, 0);
+    ret_val = recv(server, resp, SIZE_BUF, 0);
     if(!strcmp(resp, "done")) {
         printf("\e[32mFile Deleted!\e[0m\n");
     }
@@ -225,29 +229,29 @@ void deleteBook(int fd) {
     }
 }
 
-void seeBook(int fd) {
-    int ret_val, done = 0;
+void getBookList(int server) {
+    int server_val;
+    char data[FILE_SEND_BUF];
 
-    // ret_val = send(fd, "test", sizeof("test"), 0);
-    char filename[FILE_SEND_BUF], pub[FILE_SEND_BUF],
-         tahun[FILE_SEND_BUF], eks[FILE_SEND_BUF], message[FILE_SEND_BUF], filepath[FILE_SEND_BUF];
+    while(1) {
+        server_val = recv(server, data, sizeof(data), 0);
+        if(!strcmp(data, "done")) break;
+        printf("\n\e[33m%s\e[0m", data);
+    }
+}
 
-    // ret_val = recv(fd, pub, FILE_SEND_BUF, 0);
-    // printf("%s\n\n", pub);
-    printf("Yihi");
-    while(1){
-        // ret_val = recv(fd, message, FILE_SEND_BUF, 0);
-        ret_val = recv(fd, filename, FILE_SEND_BUF, 0);
-        printf("Nama: %s", filename);
-        ret_val = recv(fd, pub, FILE_SEND_BUF, 0);
-        printf("Publikasi: %s", pub);
-        ret_val = recv(fd, tahun, FILE_SEND_BUF, 0);
-        printf("Tahun Publishing: %s", tahun);
-        ret_val = recv(fd, eks, FILE_SEND_BUF, 0);
-        printf("Ekstensi File: %s", eks);
-        ret_val = recv(fd, filepath, FILE_SEND_BUF, 0);
-        printf("Filepath: %s", filepath);
-        // printf("Filepath: %s", message);
+void findBook(int server) {
+    int server_val;
+    char data[FILE_SEND_BUF], bookName[FILE_SEND_BUF];
+
+    recieveInput("Inser Book Name to Find", bookName);
+    
+    server_val = send(server, bookName, FILE_SEND_BUF, 0);
+
+    while(1) {
+        server_val = recv(server, data, sizeof(data), 0);
+        if(!strcmp(data, "done")) break;
+        printf("\n\e[33m%s\e[0m", data);
     }
 }
 
