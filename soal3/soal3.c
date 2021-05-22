@@ -215,14 +215,11 @@ void *pindahindf(void *arg)
     strcpy(akhir, tujuan);
     mkdir(tujuan, S_IRWXU);
 
-    bzero(tujuan, sizeof(tujuan));
-    strcpy(tujuan, pwd);
-    strcat(tujuan, "/");
-    strcat(tujuan, nama_file);
+    strcat(path, nama_file);
     strcat(akhir, "/");
     strcat(akhir, nama_file);
-    printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", tujuan, akhir);
-    rename(tujuan, akhir);
+    printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", path, akhir);
+    rename(path, akhir);
     
     return NULL;
 }
