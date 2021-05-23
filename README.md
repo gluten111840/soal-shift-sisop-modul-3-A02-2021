@@ -10,8 +10,69 @@ Membuat program perkalian matrix (4x3 dengan 3x6) dan menampilkan hasilnya. Matr
 
 ## Jawaban
 
-Pada soal ini, kita diminta untuk mengalikan matriks 4x3 dengan matriks 3x6, yang menghasilkan matriks 4x6 berdasarkan operasi matematika matriks. Untuk programnya, kita menginisialisasi dahulu matriks 4x3 (array 2 dimensi), lalu mengisinya dengan angka-angka, lalu menginisialisasi matriks 3x6 (array 2 dimensi), lalu mengisinya dengan angka. \
-Setelah itu memanggil fungsi mulMatrix untuk mengalikan kedua matriks tersebut dan disimpan ke dalam variabel matC yang sebelumnya diinisialisasi dengan shared memory, yang shared memory ini digunakan untuk mentransfer output perkalian matriks ini menjadi input pada program soal 2b. Untuk mentransfer hasilnya tersebut, kita memasang flag sebagai penanda agar program soal 2b bisa menerima hasil inputan tersebut.
+Pada soal ini, kita diminta untuk mengalikan matriks 4x3 dengan matriks 3x6, yang menghasilkan matriks 4x6 berdasarkan operasi matematika matriks. Untuk programnya, kita menginisialisasi dahulu matriks 4x3 (array 2 dimensi), lalu mengisinya dengan angka-angka, lalu menginisialisasi matriks 3x6 (array 2 dimensi), lalu mengisinya dengan angka. 
+
+```C
+int main()
+{
+    ...
+    printf("Please insert matrix A (4x3):\n");
+    for(int i = 0; i < 4; i++) {
+        for(int j = 0; j < 3; j++) {
+            scanf("%lld", &matA[i][j]);
+        }
+    }
+
+    printMatrix(4, 3, matA);
+
+    printf("Please insert matrix B (3x6):\n");
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 6; j++) {
+            scanf("%lld", &matB[i][j]);
+        }
+    }
+
+    printMatrix(3, 6, matB);
+    ...
+}
+```
+Setelah itu memanggil fungsi mulMatrix untuk mengalikan kedua matriks tersebut dan disimpan ke dalam variabel matC yang sebelumnya diinisialisasi dengan shared memory, yang shared memory ini digunakan untuk mentransfer output perkalian matriks ini menjadi input pada program soal 2b.
+```C
+void mulMatrix(int rowA, int colA, ll matA[rowA][colA],
+                int rowB, int colB, ll matB[rowB][colB],
+                ll matC[rowA][colB]) {
+    int temp = 0;
+    for(int i = 0; i < rowA; i++) {
+        for(int j = 0; j < colB; j++) {
+            for(int k = 0; k < colA; k++) {
+                matC[i][j] += matA[i][k] * matB[k][j];
+            }
+        }
+    }
+}
+
+int main()
+{
+    key_t kunci = 6969;
+    void *mem;
+    ll matA[4][3], matB[3][6];
+
+    int shmid = shmget(kunci, 512, IPC_CREAT | 0666);
+    mem = shmat(shmid, NULL, 0);
+
+    ll (*matC)[6] = mem;
+    memset(matC, 0, sizeof(int));
+}
+```
+Untuk mentransfer hasilnya tersebut, kita memasang flag sebagai penanda agar program soal 2b bisa menerima hasil inputan tersebut.
+```C
+int main()
+{
+    ...
+    matC[5][0] = 1;
+    ...
+}
+```
 
 ## Kode Program
 ```C
