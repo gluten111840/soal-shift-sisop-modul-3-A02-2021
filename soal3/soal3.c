@@ -16,10 +16,10 @@ char pwd[10000];
 char folder[10000];
 char another[10000];
 
-void *pindahin(void *);
 void *pindahin(void *arg);
 void *pindahindf(void *);
 void star(int argc, char *argv[]);
+void de(int argc, char *argv[]);
 void findanother();
 
 struct fileType {
@@ -79,13 +79,7 @@ int main(int argc, char *argv[])
     }
     else if(strcmp(argv[1], "-d") == 0)
     {
-        // minde(argc, argv);
-        bikin_thread = pthread_create(&tid[2], NULL, pindahindf, (void *)argv[2]);
-        if(bikin_thread != 0)
-            printf("Yah, gagal disimpan :(\n");
-        else
-            printf("Direktori sukses disimpan!\n");
-        pthread_join(tid[2], NULL);
+        de(argc, argv);
     }
     else if((argv[1][0] == '*') && (strlen(argv[1]) == 1))
         star(argc, argv);
@@ -140,14 +134,13 @@ void *pindahin(void *arg)
     return NULL;
 }
 
-void *pindahind(void *arg) {
-    char *path = (char *) arg;
+void de(int argc, char *argv[]) {
+    struct fileType *curFile;
     DIR *dp;
     struct dirent *ep;
-    dp = opendir(path);
-    strcpy(folder, path);
+    dp = opendir(argv[2]);
+    strcpy(folder, argv[2]);
     int i = 0;
-
     while((dp != NULL) && (ep = readdir(dp)))
     {
         if(ep->d_type == 4 && 
@@ -160,7 +153,6 @@ void *pindahind(void *arg) {
             strcat(another, "/");
             findanother();
         }
-
         if(strcmp(ep->d_name, ".") == 0 || 
             strcmp(ep->d_name, "..") == 0 ||
             strcmp(ep->d_name, "soal3.c") == 0 ||
@@ -169,14 +161,19 @@ void *pindahind(void *arg) {
         {
             continue;
         }
-        bikin_thread = pthread_create(&tid[i], NULL, pindahin, ep->d_name);
+        
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
         if(bikin_thread != 0)
             printf("Yah, gagal disimpan :(\n");
         else
             printf("Direktori sukses disimpan!\n");
         i++;
     }
-
     for(int j=0;j<i;j++)
         pthread_join(tid[j], NULL);
     closedir(dp);
@@ -218,7 +215,7 @@ void *pindahindf(void *arg)
     strcat(path, nama_file);
     strcat(akhir, "/");
     strcat(akhir, nama_file);
-    printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", path, akhir);
+    // printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", path, akhir);
     rename(path, akhir);
     
     return NULL;
@@ -257,7 +254,7 @@ void star(int argc, char *argv[])
         curFile = (struct fileType *) malloc(sizeof(struct fileType));
         strcpy(curFile->filename, ep->d_name);
         strcpy(curFile->path, folder);
-        printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
 
         bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
         if(bikin_thread != 0)
@@ -302,7 +299,7 @@ void findanother()
         curFile = (struct fileType *) malloc(sizeof(struct fileType));
         strcpy(curFile->filename, ep->d_name);
         strcpy(curFile->path, folder);
-        printf("\e[33m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+        // printf("\e[33m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
 
         bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *)curFile);
         if(bikin_thread != 0)
