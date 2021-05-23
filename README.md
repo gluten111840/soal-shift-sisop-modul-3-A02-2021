@@ -474,6 +474,72 @@ File 2 : Sad, gagal :( (jika gagal)
 File 3 : Berhasil Dikategorikan
 ```
 
+## Jawaban
+Pada soal ini, kita diminta untuk membuat sebuah program dengan input pada saat me-run file .exe (argv) dengan kode *-f*, lalu dilanjutkan dengan lokasi file yang ingin dikategorikan sebanyak mungkin. Untuk membuat program ini, kita menggunakan thread untuk memindahkan masing-masing file, sehingga memperringan pekerjaan. Pada fungsi main, kita mengcompare argv[1] dengan string "-f", lalu kita menge-loop proses create thread sebanyak berapa jumlah lokasi yang diinputkan.
+```C
+int main(int argc, char *argv[])
+{
+    ...
+    if(strcmp(argv[1], "-f") == 0)
+    {
+        for(int i=2;i<argc;i++)
+        {
+            bikin_thread = pthread_create(&tid[i], NULL, pindahindf, (void *)argv[i]);
+            if(bikin_thread != 0)
+                printf("File %d : Sad, gagal :(\n", i-1);
+            else
+                printf("File %d : Berhasil Dikategorikan\n", i-1);
+        }
+        for(int i=2;i<argc;i++)
+            pthread_join(tid[i], NULL);
+    }
+    ...
+}
+```
+Lalu di setiap thread, kita membuat folder hasil pengategorian berdasarkan nama ekstensi file yang akan dikategorikan. Jika filenya itu terhidden, maka dengan cara berikut, akan ditemukan dan masuk ke kategori "Hidden". Kemudian jika filenya tidak memiliki format, akan masuk ke kategori "Unknown". Selain itu, untuk yang memiliki 2 format seperti *.tar.gz*, maka akan diambil yang terdepan hingga ke akhir ekstensi. Lalu dipindahkan ke tujuan dengan fungsi rename.
+```C
+void *pindahindf(void *arg)
+{
+    char *path = (char *) arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(path, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+    if((ekstensi-path-strlen(pwd)+1)==2 || 
+        (ekstensi-path+1)==1)
+        strcpy(ext, "Hidden");
+    else if(ekstensi)
+    {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+
+    char nama_file[10000];
+    
+    getFileName(path, nama_file);
+
+    char tujuan[10000];
+    char akhir[10000];
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+
+    strcat(path, nama_file);
+    strcat(akhir, "/");
+    strcat(akhir, nama_file);
+    // printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", path, akhir);
+    rename(path, akhir);
+    
+    return NULL;
+}
+```
+
 ## 3b
 Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. \
 Contoh adalah seperti ini:
@@ -486,17 +552,616 @@ Output yang dikeluarkan adalah seperti ini :
 Jika berhasil, print “Direktori sukses disimpan!”
 Jika gagal, print “Yah, gagal disimpan :(“
 ```
+
+## Jawaban
+Pada soal 3b ini, kita diminta untuk mengategorikan semua isi dari suatu folder yang diinputkan, namun kita hanya bisa menginputkan 1 folder saja. Kita meng-compare inputan dengan string "-d", lalu kita membuka directory pada inputan setelah -d tersebut dengan menggunakan DIR dan struct dirent, ketika sudah ketemu, maka kita mencari satu persatu semua file meskipun yang ada di dalam folder lagi. Jika kita sudah menemukannya, maka kita membuat folder untuk setiap ekstensi dan kita memindahkan semuanya ke dalam folder-folder yang telah dibuat dengan menggunakan thread.
+```C
+void de(int argc, char *argv[]) {
+    struct fileType *curFile;
+    DIR *dp;
+    struct dirent *ep;
+    dp = opendir(argv[2]);
+    strcpy(folder, argv[2]);
+    int i = 0;
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        if(ep->d_type == 4 && 
+            strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcpy(another, folder);
+            strcat(another, "/");
+            strcat(another, ep->d_name);
+            strcat(another, "/");
+            findanother();
+        }
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+        
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
+
+void *pindahin(void *arg)
+{
+    struct fileType *curFile = arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(curFile->filename, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+
+    if((ekstensi-curFile->filename-strlen(pwd)+1)==2 || (ekstensi-curFile->filename+1)==1) {
+        strcpy(ext, "Hidden");
+    }
+    else if(ekstensi) {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+    
+    // getFileName(curFile->filename, curFile->filename);
+
+    char tujuan[10000];
+    char akhir[10000];
+    // tujuan[0] = '\"';
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+    
+    if(strlen(curFile->path) > 1) {
+        char file_nama[10000];
+        strcpy(file_nama, curFile->path);
+        strcat(file_nama, "/");
+        strcat(file_nama, curFile->filename);
+        strcat(tujuan, "/");
+        strcat(tujuan, curFile->filename);
+        rename(file_nama, tujuan);
+    }
+    else
+    {
+        strcat(akhir, "/");
+        strcat(akhir, curFile->filename);
+        rename(curFile->filename, akhir);
+    }
+    return NULL;
+}
+```
+
 ## 3c
 Selain menerima opsi-opsi di atas, program ini menerima opsi *, contohnya ada di bawah ini:
 ```
 $ ./soal3 \*
 ```
 Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
+
+## Jawaban
+Pada soal 3c ini, kita mengategorikan semua file yang ada di current working directory selain file soal3c.c dan soal3c. Sama seperti soal 3b, kita hanya tinggal mengubah lokasi yang awalnya diambil dari inputan menjadi lokasi current working directory.
+```C
+void star(int argc, char *argv[])
+{
+    struct fileType *curFile;
+    DIR *dp;
+    struct dirent *ep;
+    dp = opendir(pwd);
+    strcpy(folder, pwd);
+    int i = 0;
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        if(ep->d_type == 4 && 
+            strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcpy(another, folder);
+            strcat(another, "/");
+            strcat(another, ep->d_name);
+            strcat(another, "/");
+            findanother();
+        }
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+        
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
+
+void *pindahin(void *arg)
+{
+    struct fileType *curFile = arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(curFile->filename, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+
+    if((ekstensi-curFile->filename-strlen(pwd)+1)==2 || (ekstensi-curFile->filename+1)==1) {
+        strcpy(ext, "Hidden");
+    }
+    else if(ekstensi) {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+    
+    // getFileName(curFile->filename, curFile->filename);
+
+    char tujuan[10000];
+    char akhir[10000];
+    // tujuan[0] = '\"';
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+    
+    if(strlen(curFile->path) > 1) {
+        char file_nama[10000];
+        strcpy(file_nama, curFile->path);
+        strcat(file_nama, "/");
+        strcat(file_nama, curFile->filename);
+        strcat(tujuan, "/");
+        strcat(tujuan, curFile->filename);
+        rename(file_nama, tujuan);
+    }
+    else
+    {
+        strcat(akhir, "/");
+        strcat(akhir, curFile->filename);
+        rename(curFile->filename, akhir);
+    }
+    return NULL;
+}
+```
+
 ## 3d
 Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+
+```C
+void *pindahin(void *arg)
+{
+    ...
+    if((ekstensi-curFile->filename-strlen(pwd)+1)==2 || (ekstensi-curFile->filename+1)==1) {
+        strcpy(ext, "Hidden");
+    }
+    else if(ekstensi) {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+    ...
+}
+
+void *pindahindf(void *arg)
+{
+    ...
+    if((ekstensi-curFile->filename-strlen(pwd)+1)==2 || (ekstensi-curFile->filename+1)==1) {
+        strcpy(ext, "Hidden");
+    }
+    else if(ekstensi) {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+    ...
+}
+```
+
 ## 3e
 Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
 
+```C
+void de(int argc, char *argv[]) {
+    ...
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+}
 
+void star(int argc, char *argv[]) {
+    ...
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    ...
+    if(strcmp(argv[1], "-f") == 0)
+    {
+        for(int i=2;i<argc;i++)
+        {
+            bikin_thread = pthread_create(&tid[i], NULL, pindahindf, (void *)argv[i]);
+            if(bikin_thread != 0)
+                printf("File %d : Sad, gagal :(\n", i-1);
+            else
+                printf("File %d : Berhasil Dikategorikan\n", i-1);
+        }
+        for(int i=2;i<argc;i++)
+            pthread_join(tid[i], NULL);
+    }
+    ...
+}
+```
+## Kode Program
+```C
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<pthread.h>
+#include<ctype.h>
+#include<dirent.h>
+#include<sys/stat.h>
+#include<sys/types.h>
+#include<stdlib.h>
+
+pthread_t tid[99999999];
+int bikin_thread;
+pid_t child;
+char pwd[10000];
+char folder[10000];
+char another[10000];
+
+void *pindahin(void *arg);
+void *pindahindf(void *);
+void star(int argc, char *argv[]);
+void de(int argc, char *argv[]);
+void findanother();
+
+struct fileType {
+    char filename[256];
+    char path[1000];
+};
+
+char *strrev(char *str) {
+    char *p1, *p2;
+
+    if (! str || ! *str)
+        return str;
+    for (p1 = str, p2 = str + strlen(str) - 1; p2 > p1; ++p1, --p2) {
+        *p1 ^= *p2;
+        *p2 ^= *p1;
+        *p1 ^= *p2;
+    }
+    return str;
+}
+
+void getFileName(char path[], char filename[]) {
+    int i = strlen(path) - 1;
+    int j = 0;
+    // int len = strlen(path) - 1;
+    // char temp[strlen(path)];
+    // printf("\e[36m%s\n\n\e[0", path);
+    while(i) {
+        path[i+1] = '\0';
+        if(path[i] == '/')
+            break;
+        filename[j] = path[i];
+        i--;
+        j++;
+    }
+    filename[j] = '\0';
+
+    strrev(filename);
+}
+
+int main(int argc, char *argv[])
+{
+    getcwd(pwd, sizeof(pwd));
+    memset(folder, '\0', sizeof(folder));
+    memset(another, '\0', sizeof(another));
+    if(strcmp(argv[1], "-f") == 0)
+    {
+        for(int i=2;i<argc;i++)
+        {
+            bikin_thread = pthread_create(&tid[i], NULL, pindahindf, (void *)argv[i]);
+            if(bikin_thread != 0)
+                printf("File %d : Sad, gagal :(\n", i-1);
+            else
+                printf("File %d : Berhasil Dikategorikan\n", i-1);
+        }
+        for(int i=2;i<argc;i++)
+            pthread_join(tid[i], NULL);
+    }
+    else if(strcmp(argv[1], "-d") == 0)
+    {
+        de(argc, argv);
+    }
+    else if((argv[1][0] == '*') && (strlen(argv[1]) == 1))
+        star(argc, argv);
+}
+
+void *pindahin(void *arg)
+{
+    struct fileType *curFile = arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(curFile->filename, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+
+    if((ekstensi-curFile->filename-strlen(pwd)+1)==2 || (ekstensi-curFile->filename+1)==1) {
+        strcpy(ext, "Hidden");
+    }
+    else if(ekstensi) {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+    
+    // getFileName(curFile->filename, curFile->filename);
+
+    char tujuan[10000];
+    char akhir[10000];
+    // tujuan[0] = '\"';
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+    
+    if(strlen(curFile->path) > 1) {
+        char file_nama[10000];
+        strcpy(file_nama, curFile->path);
+        strcat(file_nama, "/");
+        strcat(file_nama, curFile->filename);
+        strcat(tujuan, "/");
+        strcat(tujuan, curFile->filename);
+        rename(file_nama, tujuan);
+    }
+    else
+    {
+        strcat(akhir, "/");
+        strcat(akhir, curFile->filename);
+        rename(curFile->filename, akhir);
+    }
+    return NULL;
+}
+
+void de(int argc, char *argv[]) {
+    struct fileType *curFile;
+    DIR *dp;
+    struct dirent *ep;
+    dp = opendir(argv[2]);
+    strcpy(folder, argv[2]);
+    int i = 0;
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        if(ep->d_type == 4 && 
+            strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcpy(another, folder);
+            strcat(another, "/");
+            strcat(another, ep->d_name);
+            strcat(another, "/");
+            findanother();
+        }
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+        
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
+
+void *pindahindf(void *arg)
+{
+    char *path = (char *) arg;
+    char *ekstensi = NULL;
+    char dot = '.';
+    ekstensi = strchr(path, dot);
+    char ext[10000];
+    memset(ext, '\0', sizeof(ext));
+    if((ekstensi-path-strlen(pwd)+1)==2 || 
+        (ekstensi-path+1)==1)
+        strcpy(ext, "Hidden");
+    else if(ekstensi)
+    {
+        ekstensi++;
+        for(int i=0;i<strlen(ekstensi);i++)
+            ext[i] = tolower(ekstensi[i]);
+    }
+    else
+        strcpy(ext, "Unknown");
+
+    char nama_file[10000];
+    
+    getFileName(path, nama_file);
+
+    char tujuan[10000];
+    char akhir[10000];
+    strcpy(tujuan, pwd);
+    strcat(tujuan, "/");
+    strcat(tujuan, ext);
+    strcpy(akhir, tujuan);
+    mkdir(tujuan, S_IRWXU);
+
+    strcat(path, nama_file);
+    strcat(akhir, "/");
+    strcat(akhir, nama_file);
+    // printf("\e[31mTEST\n\n%s\n\n%s\n\n\e[0m", path, akhir);
+    rename(path, akhir);
+    
+    return NULL;
+}
+
+
+void star(int argc, char *argv[])
+{
+    struct fileType *curFile;
+    DIR *dp;
+    struct dirent *ep;
+    dp = opendir(pwd);
+    strcpy(folder, pwd);
+    int i = 0;
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        if(ep->d_type == 4 && 
+            strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcpy(another, folder);
+            strcat(another, "/");
+            strcat(another, ep->d_name);
+            strcat(another, "/");
+            findanother();
+        }
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+        
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[32m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *) curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
+
+void findanother()
+{
+    struct fileType *curFile;
+    DIR *dp;
+    struct dirent *ep;
+    int i  = 0;
+    strcpy(curFile->path, another);
+    dp = opendir(curFile->path);
+    while((dp != NULL) && (ep = readdir(dp)))
+    {
+        if(ep->d_type == 4 && strcmp(ep->d_name, ".") != 0 &&
+            strcmp(ep->d_name, "..") != 0)
+        {
+            strcat(curFile->path, ep->d_name);
+            strcat(curFile->path, "/");
+            findanother();
+        }
+
+        if(strcmp(ep->d_name, ".") == 0 || 
+            strcmp(ep->d_name, "..") == 0 ||
+            strcmp(ep->d_name, "soal3.c") == 0 ||
+            strcmp(ep->d_name, "soal3") == 0 ||
+            ep->d_type == 4)
+        {
+            continue;
+        }
+
+        curFile = (struct fileType *) malloc(sizeof(struct fileType));
+        strcpy(curFile->filename, ep->d_name);
+        strcpy(curFile->path, folder);
+        // printf("\e[33m\n\n%s\n\n%s\n\n\e[0m", curFile->filename, curFile->path);
+
+        bikin_thread = pthread_create(&tid[i], NULL, pindahin, (void *)curFile);
+        if(bikin_thread != 0)
+            printf("Yah, gagal disimpan :(\n");
+        else
+            printf("Direktori sukses disimpan!\n");
+        i++;
+    }
+    for(int j=0;j<i;j++)
+        pthread_join(tid[j], NULL);
+    closedir(dp);
+    return;
+}
+```
 **Kendala** \
 Waktu pengerjaan berbarengan dengan ETS jadi tidak bisa maksimal. Dan soal no 1 terlalu sulit untuk selesai tepat waktu
