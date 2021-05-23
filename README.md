@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 
 ## 2b
 
-Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang a	da. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel)
+Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang ada. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel)
 
 **Ketentuan** 
 ```
@@ -163,9 +163,255 @@ If b > a -> a!
 If 0 -> 0
 ```
 
+## Jawaban
+
+Pada soal 2b ini, kita menginput hasil output pada soal 2a yang didapatkan dari hasil shared memory.
+
+## Kode Program
+```C
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#define ROW 4
+#define COL 6
+
+typedef long long ll;
+
+struct cellArgs {
+    ll a;
+    ll b;
+    ll *res;
+};
+
+
+ll factorial(int x, int lowerBound) {
+    if(x == lowerBound + 1) return lowerBound + 1;
+    return x * factorial(x-1, lowerBound);
+}
+
+void *calculate(void *args) {
+    struct cellArgs *cellVar = args;
+    if(cellVar->a == 0 || cellVar->b == 0) {
+        *cellVar->res = 0;
+    } else if(cellVar->a >= cellVar->b) {
+        *cellVar->res = factorial(cellVar->a, cellVar->a - cellVar->b);
+    }  else {
+        *cellVar->res = factorial(cellVar->a, 0);
+    }
+    free(cellVar);
+    pthread_exit(NULL);
+    return NULL;
+}
+
+void printMatrix(int row, int col, ll matrix[row][col]) {
+    printf("\e[36m");
+    printf("\n");
+    for(int i = 0; i < row; i++) {
+        for(int j = 0; j < col; j++) {
+            printf("%lld ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n\e[0m");
+}
+
+int main() {
+    pthread_t celCalculate[ROW*COL];
+
+    key_t kunci = 6969;
+    void *mem;
+    ll matB[ROW][COL], result[ROW][COL];
+
+    int shmid = shmget(kunci, 512, IPC_CREAT | 0666);
+    mem = shmat(shmid, NULL, 0);
+
+    ll (*matA)[COL] = mem;
+    
+    while(matA[5][0] == 0) {
+        printf("\e[31mWaiting...\e[0m\n");
+        sleep(1);
+    }
+
+    printMatrix(ROW, COL, matA);
+
+    printf("Please insert matrix B (4x6):\n");
+    for(int i = 0; i < ROW; i++) {
+        for(int j = 0; j < COL; j++) {
+            scanf("%lld", &matB[i][j]);
+        }
+    }
+
+    struct cellArgs *cellVar;
+
+    for(int i = 0; i < ROW; i++) {
+        for(int j = 0; j < COL; j++) {
+            cellVar = (struct cellArgs *) malloc(sizeof(struct cellArgs));
+            cellVar->a = matA[i][j];
+            cellVar->b = matB[i][j];
+            cellVar->res = &result[i][j];
+            
+            pthread_create(&celCalculate[i*4+j], NULL, &calculate, (void *)cellVar);
+        }
+    }
+
+    for(int i = 0; i < ROW*COL; i++) {
+        pthread_join(celCalculate[i], NULL);
+    }
+
+    printMatrix(ROW, COL, result);
+
+    shmdt(mem);
+    shmctl(shmid, IPC_RMID, NULL);
+}
+```
+
 ## 2c
 
 Karena takut lag dalam pengerjaannya membantu Loba, Crypto juga membuat program (soal2c.c) untuk mengecek 5 proses teratas apa saja yang memakan resource komputernya dengan command “ps aux | sort -nrk 3,3 | head -5” (Catatan!: Harus menggunakan IPC Pipes)
+
+## Jawaban
+
+## Kode Program
+```C
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define ROW 4
+#define COL 6
+
+int fd1[2];
+int fd2[2];
+
+int main() {
+    pid_t pid;
+    // create pipe1
+    if (pipe(fd1) == -1) {
+        perror("bad pipe1");
+        exit(1);
+    }
+
+    // fork (ps aux)
+    if ((pid = fork()) == -1) {
+    perror("bad fork1");
+    exit(1);
+    } else if (pid == 0) {
+        // stdin --> ps --> pipe1
+        dup2(fd1[1], 1);
+        // close fds
+        close(fd1[0]);
+        close(fd1[1]);
+        // exec
+        execlp("ps", "ps", "aux", NULL);
+        // exec didn't work, exit
+        perror("bad exec ps");
+        exit(1);
+    }
+    // parent
+
+    // create pipe2
+    if (pipe(fd2) == -1) {
+        perror("bad pipe2");
+        exit(1);
+    }
+
+    // fork (grep root)
+    if ((pid = fork()) == -1) {
+        perror("bad fork2");
+        exit(1);
+    } else if (pid == 0) {
+        // input from pipe1
+        dup2(fd1[0], 0);
+        // output to pipe2
+        dup2(fd2[1], 1);
+        // close fds
+        close(fd1[0]);
+        close(fd1[1]);
+        close(fd2[0]);
+        close(fd2[1]);
+        // exec
+        execlp("sort", "sort", "-nrk", "3,3", NULL);
+        // exec didn't work, exit
+        perror("bad exec sort root");
+        exit(1);
+    }
+    // parent
+
+    // close unused fds// fflush(stdout);
+    close(fd1[0]);
+    close(fd1[1]);
+
+    // fork (grep sbin)
+    if ((pid = fork()) == -1) {
+        perror("bad fork3");
+        exit(1);
+    } else if (pid == 0) {
+        dup2(fd2[0], 0);
+        // output to stdout (already done)
+        // close fds
+        close(fd2[0]);
+        close(fd2[1]);
+        // exec
+        execlp("head", "head", "-5", NULL);
+        // exec didn't work, exit
+        perror("bad exec grep sbin");
+        exit(1);
+    }
+    exit(1);
+}
+```
+
+# Soal 3
+
+Seorang mahasiswa bernama Alex sedang mengalami masa gabut. Di saat masa gabutnya, ia memikirkan untuk merapikan sejumlah file yang ada di laptopnya. Karena jumlah filenya terlalu banyak, Alex meminta saran ke Ayub. Ayub menyarankan untuk membuat sebuah program C agar file-file dapat dikategorikan. Program ini akan memindahkan file sesuai ekstensinya ke dalam folder sesuai ekstensinya yang folder hasilnya terdapat di working directory ketika program kategori tersebut dijalankan.
+
+## Catatan
+- Kategori folder tidak dibuat secara manual, harus melalui program C
+- Program ini tidak case sensitive. Contoh: JPG dan jpg adalah sama
+- Jika ekstensi lebih dari satu (contoh “.tar.gz”) maka akan masuk ke folder dengan titik terdepan (contoh “tar.gz”)
+- Dilarang juga menggunakan fork-exec dan system()
+- Bagian b dan c berlaku rekursif
+
+## 3a
+Program menerima opsi -f seperti contoh di atas, jadi pengguna bisa menambahkan argumen file yang bisa dikategorikan sebanyak yang diinginkan oleh pengguna. \
+Output yang dikeluarkan adalah seperti ini :
+```
+File 1 : Berhasil Dikategorikan (jika berhasil)
+File 2 : Sad, gagal :( (jika gagal)
+File 3 : Berhasil Dikategorikan
+```
+
+## 3b
+Program juga dapat menerima opsi -d untuk melakukan pengkategorian pada suatu directory. Namun pada opsi -d ini, user hanya bisa memasukkan input 1 directory saja, tidak seperti file yang bebas menginput file sebanyak mungkin. \
+Contoh adalah seperti ini:
+```
+$ ./soal3 -d /path/to/directory/
+```
+Perintah di atas akan mengkategorikan file di /path/to/directory, lalu hasilnya akan disimpan di working directory dimana program C tersebut berjalan (hasil kategori filenya bukan di /path/to/directory).
+Output yang dikeluarkan adalah seperti ini :
+```
+Jika berhasil, print “Direktori sukses disimpan!”
+Jika gagal, print “Yah, gagal disimpan :(“
+```
+## 3c
+Selain menerima opsi-opsi di atas, program ini menerima opsi *, contohnya ada di bawah ini:
+```
+$ ./soal3 \*
+```
+Opsi ini akan mengkategorikan seluruh file yang ada di working directory ketika menjalankan program C tersebut.
+## 3d
+Semua file harus berada di dalam folder, jika terdapat file yang tidak memiliki ekstensi, file disimpan dalam folder “Unknown”. Jika file hidden, masuk folder “Hidden”.
+## 3e
+Setiap 1 file yang dikategorikan dioperasikan oleh 1 thread agar bisa berjalan secara paralel sehingga proses kategori bisa berjalan lebih cepat.
+
 
 **Kendala** \
 Waktu pengerjaan berbarengan dengan ETS jadi tidak bisa maksimal. Dan soal no 1 terlalu sulit untuk selesai tepat waktu
