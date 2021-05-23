@@ -1,5 +1,9 @@
 # Soal Shift SISOP modul 3 A02 2021
 
+Anggota Kelompok : 
+- Bayu Eka Prawira (05111940000042)
+- Putu Ananda Satria Adi (05111940000113)
+
 ## Soal 1
 
 ### Narasi Soal
@@ -1163,6 +1167,9 @@ int main(int argc, char *argv[]) {
 }
 ```
 
+## Output
+![Hasil 2A](./Foto/2a.PNG) 
+
 ## 2b
 
 Membuat program dengan menggunakan matriks output dari program sebelumnya (program soal2a.c) (Catatan!: gunakan shared memory). Kemudian matriks tersebut akan dilakukan perhitungan dengan matrix baru (input user) sebagai berikut contoh perhitungan untuk matriks yang ada. Perhitungannya adalah setiap cel yang berasal dari matriks A menjadi angka untuk faktorial, lalu cel dari matriks B menjadi batas maksimal faktorialnya matri(dari paling besar ke paling kecil) (Catatan!: gunakan thread untuk perhitungan di setiap cel)
@@ -1377,7 +1384,8 @@ int main() {
     shmctl(shmid, IPC_RMID, NULL);
 }
 ```
-
+## Output
+![Hasil 2B](./Foto/2b.PNG) 
 ## 2c
 
 Karena takut lag dalam pengerjaannya membantu Loba, Crypto juga membuat program (soal2c.c) untuk mengecek 5 proses teratas apa saja yang memakan resource komputernya dengan command “ps aux | sort -nrk 3,3 | head -5” (Catatan!: Harus menggunakan IPC Pipes)
@@ -1476,7 +1484,8 @@ int main() {
     exit(1);
 }
 ```
-
+## Output
+![Hasil 2C](./Foto/2c.PNG) 
 # Soal 3
 
 Seorang mahasiswa bernama Alex sedang mengalami masa gabut. Di saat masa gabutnya, ia memikirkan untuk merapikan sejumlah file yang ada di laptopnya. Karena jumlah filenya terlalu banyak, Alex meminta saran ke Ayub. Ayub menyarankan untuk membuat sebuah program C agar file-file dapat dikategorikan. Program ini akan memindahkan file sesuai ekstensinya ke dalam folder sesuai ekstensinya yang folder hasilnya terdapat di working directory ketika program kategori tersebut dijalankan.
@@ -1569,6 +1578,10 @@ void *pindahindf(void *arg)
     return NULL;
 }
 ```
+
+## Output
+![Hasil 3A](./Foto/3a.PNG) 
+![Hasil 3A_](./Foto/3a_.PNG)
 
 ## 3b
 
@@ -1687,6 +1700,8 @@ void *pindahin(void *arg)
     return NULL;
 }
 ```
+## Output
+![Hasil 3B](./Foto/3b.PNG)
 
 ## 3c
 
@@ -1799,6 +1814,9 @@ void *pindahin(void *arg)
     return NULL;
 }
 ```
+
+## Output
+![Hasil 3C](./Foto/3c.PNG)
 
 ## 3d
 
