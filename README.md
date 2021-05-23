@@ -165,11 +165,92 @@ If 0 -> 0
 
 ## Jawaban
 
-Pada soal 2b ini, kita menginput hasil output pada soal 2a. Untuk melakukan hal tersebut, kita menggunakan shared memory. Lalu untuk mendapatkan input tersebut, maka program ini harus dijalankan bersamaan dengan program pada soal 2a. Jika program 2a masih belum mengeluarkan output, maka program soal 2b akan menunggu hingga variabel matriks yang diassign dengan shared memory memiliki flag = 1. Setelah itu, kita baru bisa mendapatkan inputnya dan menyimpannya ke dalam variabel matA. Setelah kita mendapatkan inputnya, kita menginputkan lagi matriks (matB) sebagai batas maksimal faktorialnya matriks matA. Misalkan pada cell (1,1) pada matriks matA adalah 5, dan cell (1,1) pada matriks matB adalah 3, maka hasil dari cell (1,1) program pada soal 2b ini adalah **5x4x3 = 60**. Tetapi, jika dimisalkan pada matriks matA pada cell (1,1) bernilai lebih besar atau sama dengan cell (1,1) pada matriks matB, maka hasil faktorialnya adalah (a!/(a-b)!)
+Pada soal 2b ini, kita menginput hasil output pada soal 2a. Untuk melakukan hal tersebut, kita menggunakan shared memory. Lalu untuk mendapatkan input tersebut, maka program ini harus dijalankan bersamaan dengan program pada soal 2a. Jika program 2a masih belum mengeluarkan output, maka program soal 2b akan menunggu hingga variabel matriks yang diassign dengan shared memory memiliki flag = 1. Setelah itu, kita baru bisa mendapatkan inputnya dan menyimpannya ke dalam variabel matA.
+```C
+int main()
+{
+    ...
+    key_t kunci = 6969;
+    void *mem;
+    ll matB[ROW][COL], result[ROW][COL];
 
+    int shmid = shmget(kunci, 512, IPC_CREAT | 0666);
+    mem = shmat(shmid, NULL, 0);
+
+    ll (*matA)[COL] = mem;
+    
+    while(matA[5][0] == 0) {
+        printf("\e[31mWaiting...\e[0m\n");
+        sleep(1);
+    }
+
+    printMatrix(ROW, COL, matA);
+    ...
+}
+```
+Setelah kita mendapatkan inputnya, kita menginputkan lagi matriks (matB) sebagai batas maksimal faktorialnya matriks matA. 
+```C
+int main()
+{
+    ...
+    struct cellArgs *cellVar;
+
+    for(int i = 0; i < ROW; i++) {
+        for(int j = 0; j < COL; j++) {
+            cellVar = (struct cellArgs *) malloc(sizeof(struct cellArgs));
+            cellVar->a = matA[i][j];
+            cellVar->b = matB[i][j];
+            cellVar->res = &result[i][j];
+            
+            pthread_create(&celCalculate[i*4+j], NULL, &calculate, (void *)cellVar);
+        }
+    }
+
+    for(int i = 0; i < ROW*COL; i++) {
+        pthread_join(celCalculate[i], NULL);
+    }
+
+    printMatrix(ROW, COL, result);
+    ...
+}
+
+void printMatrix(int row, int col, ll matrix[row][col]) {
+    printf("\e[36m");
+    printf("\n");
+    for(int i = 0; i < row; i++) {
+        for(int j = 0; j < col; j++) {
+            printf("%lld ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n\e[0m");
+}
+```
+Misalkan pada cell (1,1) pada matriks matA adalah 5, dan cell (1,1) pada matriks matB adalah 3, maka hasil dari cell (1,1) program pada soal 2b ini adalah **5x4x3 = 60**. Tetapi, jika dimisalkan pada matriks matA pada cell (1,1) bernilai lebih besar atau sama dengan cell (1,1) pada matriks matB, maka hasil faktorialnya adalah (a!/(a-b)!), lalu jika pada matriks matA pada cell (1,1) bernilai lebih kecil daripada cell (1,1) pada matriks matB, maka hasil faktorialnya adalah a!, serta jika bernilai 0, maka hasilnya juga 0. 
 ***note***
 - a = cell pada matA
 - b = cell pada matB
+```C
+ll factorial(int x, int lowerBound) {
+    if(x == lowerBound + 1) return lowerBound + 1;
+    return x * factorial(x-1, lowerBound);
+}
+
+void *calculate(void *args) {
+    struct cellArgs *cellVar = args;
+    if(cellVar->a == 0 || cellVar->b == 0) {
+        *cellVar->res = 0;
+    } else if(cellVar->a >= cellVar->b) {
+        *cellVar->res = factorial(cellVar->a, cellVar->a - cellVar->b);
+    }  else {
+        *cellVar->res = factorial(cellVar->a, 0);
+    }
+    free(cellVar);
+    pthread_exit(NULL);
+    return NULL;
+}
+```
+Semua progress di atas dijalankan dengan thread untuk setiap cell, sehingga tidak memperberat kinerja processor. Lalu haislnya disimpan pada variabel matC.
 
 ## Kode Program
 ```C
