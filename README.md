@@ -165,7 +165,11 @@ If 0 -> 0
 
 ## Jawaban
 
-Pada soal 2b ini, kita menginput hasil output pada soal 2a. Untuk melakukan hal tersebut, kita menggunakan shared memory. Lalu untuk mendapatkan input tersebut, maka program ini harus dijalankan bersamaan dengan program pada soal 2a. Jika program 2a masih belum mengeluarkan output, maka program soal 2b akan menunggu hingga variabel matriks yang diassign dengan shared memory memiliki flag = 1. Setelah itu, kita baru bisa mendapatkan inputnya dan menyimpannya ke dalam variabel matA. Setelah kita mendapatkan inputnya, kita menginputkan lagi matriks (matB) sebagai batas maksimal faktorialnya matriks matA. Misalkan pada cell (1,1) pada matriks matA adalah 5, dan cell (1,1) pada matriks matB adalah 3, maka hasil dari cell (1,1) program pada soal 2b ini adalah **5x4x3 = 60**
+Pada soal 2b ini, kita menginput hasil output pada soal 2a. Untuk melakukan hal tersebut, kita menggunakan shared memory. Lalu untuk mendapatkan input tersebut, maka program ini harus dijalankan bersamaan dengan program pada soal 2a. Jika program 2a masih belum mengeluarkan output, maka program soal 2b akan menunggu hingga variabel matriks yang diassign dengan shared memory memiliki flag = 1. Setelah itu, kita baru bisa mendapatkan inputnya dan menyimpannya ke dalam variabel matA. Setelah kita mendapatkan inputnya, kita menginputkan lagi matriks (matB) sebagai batas maksimal faktorialnya matriks matA. Misalkan pada cell (1,1) pada matriks matA adalah 5, dan cell (1,1) pada matriks matB adalah 3, maka hasil dari cell (1,1) program pada soal 2b ini adalah **5x4x3 = 60**. Tetapi, jika dimisalkan pada matriks matA pada cell (1,1) bernilai lebih besar atau sama dengan cell (1,1) pada matriks matB, maka hasil faktorialnya adalah (a!/(a-b)!)
+
+***note***
+- a = cell pada matA
+- b = cell pada matB
 
 ## Kode Program
 ```C
